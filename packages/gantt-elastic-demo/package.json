@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "dhtmlx-gantt": "^8.0.6",
     "gantt-elastic": "^1.0.12",
     "vue": "^3.3.8"
   },
