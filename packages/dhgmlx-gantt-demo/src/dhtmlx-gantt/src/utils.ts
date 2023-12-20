@@ -75,3 +75,81 @@ export function handleSortOptions(list) {
     return 0;
   });
 }
+
+
+// 延迟 子代的开始日期，duration 为与父级开始日期的 工作日天数差值
+export function delayChildStartDate(parentStart, duration) {
+  // 设置一个 新变量，让其不污染 parentStart
+  const tempDate = new Date(parentStart);
+
+  // 循环遍历工作日
+  for (let i = 0; i < duration; i += 1) {
+    // 增加一天并跳过周末
+    tempDate.setDate(tempDate.getDate() + 1);
+
+    // 如果当前日期是周末，则跳过
+    while (tempDate.getDay() === 0 || tempDate.getDay() === 6) {
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+  }
+
+  return tempDate;
+}
+
+
+// 根据精度 确定需要增加的数值
+export function generateNumber(precision) {
+  const num = 1 / 10 ** precision;
+  return Number(num.toFixed(precision));
+}
+
+
+// 深拷贝
+export function deepClone(object) {
+  return _baseDeepClone(object);
+}
+
+export function _baseDeepClone(obj, originalToCopyMap = new WeakMap()) {
+  // 如果是基本数据类型，则直接返回
+  if (typeof obj !== "object" || obj === null) {
+    return obj;
+  }
+
+  // 如果对象已经被复制过，直接返回复制后的对象，避免循环引用导致无限递归
+  if (originalToCopyMap.has(obj)) {
+    return originalToCopyMap.get(obj);
+  }
+
+  // 创建一个新的对象或数组
+  const copy = Array.isArray(obj) ? [] : {};
+
+  // 将原始对象和对应的复制对象存储在 Map 中
+  originalToCopyMap.set(obj, copy);
+
+  // 递归复制属性，同时忽略 _parent 属性
+  for (const key in obj) {
+    copy[key] = _baseDeepClone(obj[key], originalToCopyMap);
+  }
+
+  return copy;
+}
+
+
+
+// 判定是否是 vue 组件对象
+export function isComponent(target: any) {
+  if (typeof target !== 'object') return false
+
+  if (
+    (target?.setup && isFunction(target.setup)) ||
+    (target?.render && isFunction(target.render))
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function isFunction(value){
+  return typeof value === 'function'
+}
