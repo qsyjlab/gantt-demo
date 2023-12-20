@@ -1,60 +1,47 @@
-* {
-  margin: 0;
-  padding: 0;
-}
-
-html, body, #app {
-  height: 100%;
-}
-
-#app {
-  width: 100%;
-}
-
 /* 使用css 方便迁移 */
 .gantt_grid .gantt_grid_scale .gantt_grid_head_cell {
-  border-right: 1px solid #d7d7d7;
+    border-right: 1px solid #d7d7d7;
 }
 
 .gantt_grid .gantt_grid_scale .align-right-head {
-  text-align: right;
+    text-align: right;
 }
 
 .gantt_grid .gantt_grid_data .gantt_cell {
-  border-right: 1px solid #d7d7d7;
+    border-right: 1px solid #d7d7d7;
 }
 
 .gantt_grid .gantt_grid_data .gantt_cell .add-icon {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 20px;
-  color: #70d0c2!important;
-  cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    color: #70d0c2!important;
+    cursor: pointer;
 }
 
 .gantt_grid .gantt_grid_data .gantt_cell .add-icon:hover {
-  color: #11b09a;
+    color: #11b09a;
 }
 
 .gantt_task_scale .gantt_scale_cell .scale-formate-date {
-  display: flex;
-  flex-direction: column;
-  line-height: 18px;
+    display: flex;
+    flex-direction: column;
+    line-height: 18px;
 }
 
 .gantt_data_area .gantt_task_cell.week_end {
-  background-color: #dcdcdc;
+    background-color: #dcdcdc;
 }
 
 .gantt_data_area .gantt_task_row.gantt_selected .gantt_task_cell.week_end {
-  background-color: #d3d3d3;
+    background-color: #d3d3d3;
 }
 
 .gantt_data_area .completed_task {
-  border: 1px solid #94ad94;
+    border: 1px solid #94ad94;
 }
 
 .gantt_data_area .completed_task .gantt_task_progress {
-  background: #accaac;
+    background: #accaac;
 }

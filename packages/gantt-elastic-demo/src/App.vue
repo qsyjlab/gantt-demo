@@ -1,10 +1,9 @@
 <script setup lang="ts">
-// import HelloWorld from './components/HelloWorld.vue'
-import { DhtmlxGantt } from '@/dhtmlx-gantt';
+import { GanttElastic } from '@/gantt-elastic';
 </script>
 
 <template>
 
-<DhtmlxGantt></DhtmlxGantt>
+<GanttElastic />
 </template>
 

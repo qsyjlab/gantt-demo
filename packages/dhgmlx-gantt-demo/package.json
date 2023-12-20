@@ -1,5 +1,5 @@
 {
-  "name": "dhgmlx-gantt",
+  "name": "dhgmlx-gantt-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "dhtmlx-gantt": "^8.0.6",
+    "element-plus": "^2.4.4",
     "vue": "^3.3.8"
   },
   "devDependencies": {

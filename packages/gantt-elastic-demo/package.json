@@ -1,5 +1,5 @@
 {
-  "name": "dhgmlx-gantt",
+  "name": "gantt-elastic-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dayjs": "^1.11.10",
     "gantt-elastic": "^1.0.12",
     "vue": "^3.3.8"
   },

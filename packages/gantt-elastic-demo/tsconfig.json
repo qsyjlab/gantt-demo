@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": "./",
     "target": "ES2020",
     "useDefineForClassFields": true,
     "module": "ESNext",
@@ -28,12 +29,13 @@
       "~/*": [
         "./*"
       ]
-    }
+    },
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "src/**/*.vue"
+    "src/**/*.vue",
+    "typing/*.d.ts"
   ],
   "references": [
     {
