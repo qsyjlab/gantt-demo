@@ -1,4 +1,4 @@
-/* 使用css 方便迁移 */
+/* 使用css 方便迁移
 .gantt_grid .gantt_grid_scale .gantt_grid_head_cell {
     border-right: 1px solid #d7d7d7;
 }
@@ -44,4 +44,4 @@
 
 .gantt_data_area .completed_task .gantt_task_progress {
     background: #accaac;
-}
+} */
