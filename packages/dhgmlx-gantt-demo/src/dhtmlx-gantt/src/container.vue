@@ -3,6 +3,7 @@
   <div style="height: 90%" ref="ganttContainerRef"></div>
 
   <el-dialog v-model="dialogVisible" title="新增/编辑 任务" width="60%">
+    <pre>{{ state.currentTask }}</pre>
     <el-form :model="formData" label-width="120px">
       <el-form-item label="任务序号">
         <el-input v-model="formData.showCode" />
@@ -148,6 +149,16 @@ const getJson = () => {
 // 显示
 function show() {
   dialogVisible.value = true;
+
+  const task = state.currentTask;
+  formData.name = task.name;
+  formData.duration = task.duration;
+  formData.end_date = task.end_date;
+  formData.parent = task.parent;
+  formData.start_date = task.start_date
+  formData.progress = task.progress
+  formData.task_user = task.task_user
+  formData.text = task.text
 }
 // 隐藏
 function close() {
@@ -165,10 +176,6 @@ const submit = () => {
     isEdit: !isNewFlag,
   };
 
-  console.log("formData", formData);
-
-  debugger;
-
   const originParent = currentTask?.parent;
   const { parent = 0 } = newTask;
 
@@ -183,16 +190,11 @@ const submit = () => {
   // 计算 tindex 如果为新增本级，那么就是之前存的 broIndex, 如果是添加子级，直接用子级长度作为 index
   const parentLength = treeMap[parent || 0]?.length;
 
-  console.log("parentLength", parentLength);
-  debugger;
-
   const tindex = parentLength
     ? addType === "bro"
       ? broIndex
       : parentLength
     : 0;
-
-  debugger;
 
   const endDate = new Date(newTask.end_date);
   endDate.setDate(endDate.getDate() + 1); // 确认任务时 结束日期加一天
@@ -264,6 +266,7 @@ const submit = () => {
     controlChildLimit(child, newTask, newTask.start_date, false);
   }, newTask.id);
 
+  state.addType = "";
   close();
   gantt.resetLayout(); // 重置表格 布局，即新建任务的时候，可以看到新建的任务
 };
@@ -271,9 +274,35 @@ const submit = () => {
 const menuEventHandler = (command, task) => {
   console.log("command, task", command, task);
 
+  const id = new Date().getTime();
+  const tempTask = {
+    id,
+  };
+
+  const index = state.treeMap[task.parent].findIndex(
+    (cur) => cur.id === task.id
+  );
+
   if (command === "delete") {
     // 点击删除时，弹出提示框
     showDeleteConfirm(task);
+  }
+
+  if (command === "add-bro") {
+    gantt.createTask(
+      tempTask,
+      task.parent !== 0 ? task.parent : undefined,
+      index + 1
+    );
+    state.addType = "bro";
+    state.broIndex = index + 1;
+  }
+
+  if (command === "add-child") {
+    // 点击 新建子级时
+    gantt.createTask(tempTask, task.id);
+
+    state.addType = "child";
   }
 };
 
@@ -896,7 +925,9 @@ function setColumns() {
       temp.onrender = (task) => {
         const handleVnode = h(
           "div",
-          {},
+          {
+            onClick: (event) => event.stopPropagation(),
+          },
           h("div", {
             class: "gantt_add",
             style: { width: "43px", height: "43px" },
