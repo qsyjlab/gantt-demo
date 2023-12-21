@@ -20,5 +20,23 @@ export function handleCalcMax(task) {
   return Number(diffDay);
 }
 
+
+// 给其任务的子级 计算开始日期之间的工作日天数的差值
+export function calcOffsetDuration(id) {
+  const task = gantt.getTask(id);
+
+  gantt.eachTask((child) => {
+    const offsetDur = gantt.calculateDuration(
+      task.start_date as any,
+      child.start_date
+    );
+
+    child.offsetDur = offsetDur;
+  }, id);
+
+  return true;
+}
+
+
 export * from './interface'
 export default gantt;

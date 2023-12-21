@@ -15,24 +15,32 @@
         <el-input v-model="formData.task_user" />
       </el-form-item>
       <el-form-item label="父级任务">
-        <v-select v-model="formData.parent" :options="parentTaskOpitons" />
+        <v-select
+          v-model="formData.parent"
+          :options="parentTaskOpitons"
+          @change="() => handleFormDataValuesChange('parent')"
+        />
       </el-form-item>
 
       <el-form-item label="前置任务">
-        <v-select v-model="formData.pre_task" :options="preTaskOptions" />
+        <v-select
+          v-model="formData.pre_task"
+          :options="preTaskOptions"
+          @change="() => handleFormDataValuesChange('pre_task')"
+        />
       </el-form-item>
       <el-form-item label="开始时间">
         <el-date-picker
           v-model="formData.start_date"
           type="date"
-          @change="(value) => handleFormDataValuesChange('duration', value)"
+          @change="() => handleFormDataValuesChange('start_date')"
         />
       </el-form-item>
       <el-form-item label="持续时间">
         <el-input-number
           v-model="formData.duration"
           :max="state.maxCount"
-          @change="(value) => handleFormDataValuesChange('duration', value)"
+          @change="() => handleFormDataValuesChange('duration')"
         />
       </el-form-item>
       <el-form-item label="结束时间">
@@ -63,12 +71,14 @@ import {
   isVNode,
   createApp,
   h,
+  nextTick,
 } from "vue";
 import {
   ElDropdownItem,
   ElDropdown,
   ElDropdownMenu,
   ElMessageBox,
+  ElMessage,
 } from "element-plus";
 import BigNumber from "bignumber.js";
 import gantt, {
@@ -76,6 +86,7 @@ import gantt, {
   Task,
   TaskDataEx,
   TaskOption,
+  calcOffsetDuration,
   handleCalcMax,
 } from "./gantt";
 import { originColumns, zoomLevels, operationMenu } from "./config";
@@ -138,7 +149,7 @@ const formData = reactive<TaskDataEx>({
   parent: "",
   pre_task: "",
   start_date: undefined,
-  duration: "",
+  duration: 0,
   end_date: undefined,
   progress: "",
   task_status: "",
@@ -146,10 +157,12 @@ const formData = reactive<TaskDataEx>({
 
 onMounted(() => {
   initGanntContainer();
+  setLinkChangeListener();
   setZooms();
+  setColumns();
+  // setDateMarker();
   registerLightBox();
 
-  setColumns();
   const formatData = formatTask();
   gantt.parse(formatData);
 });
@@ -166,6 +179,7 @@ function show() {
     formData.duration = task.duration;
     formData.end_date = task.end_date;
     formData.parent = task.parent;
+    formData.pre_task = task.pre_task
     formData.start_date = task.start_date;
     formData.progress = task.progress;
     formData.task_user = task.task_user;
@@ -263,11 +277,11 @@ const submit = () => {
     delete newTask.$new;
     // 先添加任务，在重排
 
-    console.log('newTask, parent, tindex',newTask, parent, tindex);
-    debugger
-    
+    console.log("newTask, parent, tindex", newTask, parent, tindex);
+    debugger;
+
     gantt.addTask(newTask, parent, tindex);
-    debugger
+    debugger;
     newUpdateSortCode(newTask.id, parent, tindex, newTask, {});
   } else {
     if (originParent !== parent) {
@@ -295,7 +309,8 @@ const submit = () => {
   gantt.resetLayout(); // 重置表格 布局，即新建任务的时候，可以看到新建的任务
 };
 
-const handleFormDataValuesChange = (key: keyof TaskDataEx, value: any) => {
+// 某些属性字段变动时的判定
+const handleFormDataValuesChange = (key: keyof TaskDataEx) => {
   if (key === "duration" || key === "start_date") {
     const { start_date, duration } = formData;
 
@@ -315,6 +330,44 @@ const handleFormDataValuesChange = (key: keyof TaskDataEx, value: any) => {
     endDate.setDate(endDate.getDate() - 1); // 联动更新完 结束日期要减一
 
     formData.end_date = endDate;
+  }
+
+  if (key === "parent") {
+    const parent = String(formData.parent);
+    if (parent === "0") {
+      state.maxCount = undefined;
+    } else {
+      const parentTask = gantt.getTask(parent) as any;
+      const parentEndDate = new Date(parentTask.end_date || new Date());
+      parentEndDate.setDate(parentEndDate.getDate() - 1);
+      const tempTask = { ...state.currentTask, ...formData };
+
+      // 如果 任务 不在父任务的范围内
+      if (
+        !(
+          formData.end_date <= parentEndDate &&
+          formData.start_date >= parentTask.start_date
+        )
+      ) {
+        // 如果 任务原本的持续时间 大于 父任务的持续时间，任务的持续时间改为与父任务相等
+        if (tempTask.duration > parentTask.duration) {
+          tempTask.duration = parentTask.duration;
+        }
+
+        // 获取父级的 startDate 并计算 任务修改到父任务日期范围内后的 endDate
+        const startDate = parentTask.start_date;
+        const endDate = gantt.calculateEndDate(startDate, tempTask.duration);
+        endDate.setDate(endDate.getDate() - 1);
+
+        // 重新更新 开始和结束日期
+        tempTask.start_date = startDate;
+        tempTask.end_date = endDate;
+
+        Object.assign(formData, tempTask);
+      }
+
+      state.maxCount = handleCalcMax(tempTask);
+    }
   }
 };
 
@@ -542,6 +595,39 @@ function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
     // 让 beforeCode 与 preNum 相加 即为 移动任务新的 code
     const moveCode = Number(BigNumber(beforeTask.code).plus(preNum).toString());
     moveTask.code = moveCode;
+  } else if (tindex > 0) {
+    console.log("插入到中间");
+  } else {
+    console.log("插入开头");
+    // 以上两个都不满足的话，即为插入到第一个的位置
+    // 查找之前在 第一个的任务，如果找不到，即为之前没有，默认为一个空数组
+    const afterTask = broList[afterIndex] || {};
+
+    // 如果后一个任务 就是 MoveTask 则 return，会出现这个状况是因为 taskMove 会执行两次，第二次执行会让 code 混乱
+    if (afterTask.id === moveTask.id) return;
+
+    // 获取 需要切割的 code
+    // codeArr 会将 code 根据小数点切割成数组
+    let codeArr: string[] = [];
+    if (afterTask.code) {
+      codeArr = afterTask.code.toString().split(".");
+    } else {
+      codeArr = [];
+    }
+
+    // 根据 code 小数点后的数量确定 小数精度
+    const precision = codeArr[1]?.length || 0;
+    // 根据小数精度，确定需要增加的 Num 量
+    const preNum = generateNumber(precision + 1);
+    const moveCode = Number(preNum.toFixed(precision + 1));
+    moveTask.code = moveCode;
+    // setDynFieldValue(moveTask, 'code', moveCode);
+
+    // 如果之前没有 broList，需要新建一个，并且更新到 tempTreeMap 中，用于之后添加
+    if (!broList.length) {
+      tempTreeMap[parent] = [];
+      broList = tempTreeMap[parent];
+    }
   }
 
   // 修改 移动任务的 parent 为 当前插入的 parent，并且编辑标识改为 true
@@ -740,10 +826,8 @@ function formatCodeMap(
 function registerLightBox() {
   // 打开 弹出框事件
   gantt.showLightbox = (id) => {
+    formData.id = id;
 
-
-    formData.id = id
-  
     const task = gantt.getTask(id);
     const store = gantt.getDatastore("task") as any;
     // 给其任务的子级 计算开始日期之间的工作日天数的差值
@@ -798,6 +882,10 @@ function registerLightBox() {
           : `${map[parent].code}.${map[parent].count + 1}`;
     }
 
+    console.log('task',task);
+    debugger
+    
+
     const tempTask = {
       ...task,
       showCode,
@@ -812,12 +900,7 @@ function registerLightBox() {
     if (task.end_date!.getTime() > task.start_date!.getTime()) {
       date.setTime((task.end_date?.getTime() as number) - 24 * 60 * 60 * 1000);
     }
-    // if (
-    //   (task?.end_date?.getTime?.() >
-    //     task?.start_date?.getTime()) as number
-    // ) {
 
-    // }
 
     tempTask.end_date = date;
 
@@ -830,7 +913,9 @@ function registerLightBox() {
     // setVisible(true);
     gantt.resetLayout(); // 重置表格 布局，即新建任务的时候，可以看到新建的任务
 
-    show();
+    nextTick(() => {
+      show();
+    });
   };
 
   // 关闭 弹出框事件
@@ -838,22 +923,6 @@ function registerLightBox() {
     close();
     state.maxCount = undefined;
   };
-}
-
-// 给其任务的子级 计算开始日期之间的工作日天数的差值
-function calcOffsetDuration(id) {
-  const task = gantt.getTask(id);
-
-  gantt.eachTask((child) => {
-    const offsetDur = gantt.calculateDuration(
-      task.start_date as any,
-      child.start_date
-    );
-
-    child.offsetDur = offsetDur;
-  }, id);
-
-  return true;
 }
 
 function initGanntContainer() {
@@ -929,6 +998,107 @@ function initGanntContainer() {
       return container;
     },
   };
+}
+
+// 设置 link 链接变动的时候的 回调函数
+function setLinkChangeListener() {
+  // 链接添加后的回调事件
+  gantt.attachEvent("onAfterLinkAdd", (id, link) => {
+    const { target, source } = link;
+    const newId = `${source}-${target}`;
+    // 查找 targetMap 看该任务 存不存在 已有的链接
+    const targetLink = state.targetMap[target];
+    const sourceLink = state.targetMap[source];
+    const nowLink = gantt.getLink(id);
+
+    // 查找 来源节点的 link，如果 来源link的 source 等于 当前 target 时，代表任务循环引用了
+    if (sourceLink && sourceLink?.source === target) {
+      // 不一致且存在链接的时候，不允许他拖拽上
+      if (nowLink) {
+        gantt.deleteLink(id);
+        ElMessage.warning(
+          "任务之间不能循环引用，该任务的前置任务不能是其后置任务！"
+        );
+        return true;
+      }
+    } else if (targetLink) {
+      // 看一下是否和当前的 来源是否不一致 或 链接的来源为 这次的目标，这即为循环引用，不允许
+      if (targetLink.source !== source) {
+        // 不一致且存在链接的时候，不允许他拖拽上
+        if (nowLink) {
+          gantt.deleteLink(id);
+          ElMessage.warning(
+            "该任务已有前置任务，如需关联，请先删除该任务的关联关系！"
+          );
+        }
+      } else if (id !== newId) {
+        // 如果来源一致，即有可能重复链接了
+        if (nowLink) {
+          gantt.deleteLink(id);
+          ElMessage.warning("该任务已链接此前置任务，无需再关联一次！");
+        }
+      }
+    } else {
+      // 如果不存在
+      // 更新 新增好的 Link 的 id
+      const newLink = { ...link, id: newId };
+      state.targetMap[target] = newLink;
+      state.sourceMap[source] = newLink;
+      gantt.changeLinkId(id, newId);
+
+      // 然后更新 目标组件
+      const targetTask = gantt.getTask(target);
+      targetTask.pre_task = String(source);
+      // setDynFieldValue(targetTask, 'pre_task', String(source));
+
+      targetTask.isEdit = true;
+      gantt.updateTask(targetTask.id, targetTask);
+      updateTreeMapItem(targetTask.parent, targetTask.id, targetTask);
+    }
+
+    return true;
+  });
+
+  // 链接删除后的回调函数
+  gantt.attachEvent("onAfterLinkDelete", (id, item) => {
+    const { target, source } = item;
+    const newId = `${source}-${target}`;
+    const preLink = state.targetMap[target];
+
+    // 如果 targetMap 中存在这个 link，并且 这个 id 是我们拼接好的 id，不是组件自己生成的 id 时 才去删掉
+    if (preLink?.source === source && id === newId) {
+      // 将其删掉
+      delete state.targetMap[target];
+      delete state.sourceMap[source];
+
+      // 找到 link 指到的目标任务
+      // 将该任务的 前置任务清空
+      const targetTask = gantt.getTask(target);
+      targetTask.pre_task = undefined;
+      // setDynFieldValue(targetTask, 'pre_task', undefined);
+
+      targetTask.isEdit = true;
+      gantt.updateTask(targetTask.id, targetTask);
+      updateTreeMapItem(targetTask.parent, targetTask.id, targetTask);
+    }
+  });
+}
+
+// 设置 时间标识线
+function setDateMarker() {
+  const dateToStr = gantt.date.date_to_str(gantt.config.task_date);
+  const today = new Date(new Date().setHours(0, 0, 0, 0)); // 获取当天零点的时间
+
+  console.log("gantt.addMarker", gantt);
+
+  nextTick(() => {
+    gantt.addMarker({
+      start_date: today,
+      css: "today",
+      text: "今日",
+      title: `Today: ${dateToStr(today)}`,
+    });
+  });
 }
 
 // 设置 时间刻度范围 以及 时间刻度具体数值 以及 初始时间刻度

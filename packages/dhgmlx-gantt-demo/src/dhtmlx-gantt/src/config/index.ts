@@ -87,10 +87,7 @@ export const originColumns = [
     width: 80,
     align: "center",
     template: (item: any) => {
-      if (item.progress >= 1) return "Complete";
-      if (item.progress === 0) return "Not started";
-      const num = `${Math.round(item.progress * 100)}%`;
-      return num;
+      return item.progress
     },
   },
   {

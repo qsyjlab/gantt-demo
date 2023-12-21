@@ -12,8 +12,8 @@ dependencies:
     specifier: ^1.11.10
     version: 1.11.10
   dhtmlx-gantt:
-    specifier: ^8.0.6
-    version: 8.0.6
+    specifier: 8.0.1
+    version: 8.0.1
   element-plus:
     specifier: ^2.4.4
     version: 2.4.4(vue@3.3.11)
@@ -611,8 +611,8 @@ packages:
     resolution: {integrity: sha512-e/1zu3xH5MQryN2zdVaF0OrdNLUbvWxzMbi+iNA6Bky7l1RoP8a2fIbRocyHclXt/arDrrR6lL3TqFD9pMQTsg==}
     dev: true
 
-  /dhtmlx-gantt@8.0.6:
-    resolution: {integrity: sha512-GrEQ40/vgV1wDWkv/IvjJEM27Z4lDv76XvE5nlvMtFQTqUuo5VnL1XNDv/uFSJVMRnaN9StYaPxP1ebGamDLFg==}
+  /dhtmlx-gantt@8.0.1:
+    resolution: {integrity: sha512-LBdqSJBmjURB1MLBKCFuajQAfJXjc344YKJIQ2WzMPkJJZkrKj6HvzMJFyNYq537IvqWZ+WFAE63an0i7GP84Q==}
     dev: false
 
   /element-plus@2.4.4(vue@3.3.11):

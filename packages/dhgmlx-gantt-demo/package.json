@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "bootstrap": "pnpm i",
     "dev": "vite",
     "build": "vue-tsc && vite build",
     "preview": "vite preview"
@@ -11,7 +12,7 @@
   "dependencies": {
     "bignumber.js": "^9.1.2",
     "dayjs": "^1.11.10",
-    "dhtmlx-gantt": "^8.0.6",
+    "dhtmlx-gantt": "8.0.1",
     "element-plus": "^2.4.4",
     "lodash-es": "^4.17.21",
     "vue": "^3.3.8"
