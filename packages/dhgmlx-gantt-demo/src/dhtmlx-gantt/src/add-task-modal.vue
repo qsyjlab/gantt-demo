@@ -42,8 +42,8 @@
   </el-dialog>
 </template>
 <script setup lang="ts">
-import dayjs from "dayjs";
-import { ref, reactive, watch } from "vue";
+// import dayjs from "dayjs";
+import { ref, reactive } from "vue";
 import VSelect from "./components/select.vue";
 import gantt from "./gantt";
 import { delayChildStartDate, generateNumber } from "./utils";
