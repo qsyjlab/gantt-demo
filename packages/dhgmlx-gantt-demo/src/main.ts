@@ -5,4 +5,12 @@ import ElementPlus from 'element-plus'
 import 'element-plus/theme-chalk/index.css';
 import '@/dhtmlx-gantt/src/style.css';
 
-createApp(App).use(ElementPlus).mount('#app')
+const app = createApp(App).use(ElementPlus)
+
+app.mount('#app')
+
+
+setTimeout(() => {
+    console.log('app ',app );
+}, 200);
+

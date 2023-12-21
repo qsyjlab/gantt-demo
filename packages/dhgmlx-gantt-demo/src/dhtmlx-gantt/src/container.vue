@@ -2,8 +2,14 @@
   <!-- @ts-nocheck -->
   <div style="height: 90%" ref="ganttContainerRef"></div>
 
-  <el-dialog v-model="dialogVisible" title="新增/编辑 任务" width="60%">
-    <pre>--- {{ state.maxCount }}</pre>
+  <!-- 还要共享值 直接放着了 -->
+  <el-dialog
+    v-model="dialogVisible"
+    title="新增/编辑 任务"
+    width="60%"
+    :show-close="false"
+    @close="cancelCreateTask"
+  >
     <el-form :model="formData" label-width="120px">
       <el-form-item label="任务序号">
         <el-input v-model="formData.showCode" disabled />
@@ -55,7 +61,7 @@
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="close">取消</el-button>
+        <el-button @click="cancelCreateTask">取消</el-button>
         <el-button type="primary" @click="submit"> 确认 </el-button>
       </span>
     </template>
@@ -63,23 +69,8 @@
 </template>
 
 <script setup lang="ts">
-import {
-  onMounted,
-  ref,
-  reactive,
-  defineComponent,
-  isVNode,
-  createApp,
-  h,
-  nextTick,
-} from "vue";
-import {
-  ElDropdownItem,
-  ElDropdown,
-  ElDropdownMenu,
-  ElMessageBox,
-  ElMessage,
-} from "element-plus";
+import { onMounted, ref, reactive, isVNode, createApp, h, nextTick, render } from "vue";
+import { ElMessageBox, ElMessage } from "element-plus";
 import BigNumber from "bignumber.js";
 import gantt, {
   BusinessTask,
@@ -87,7 +78,9 @@ import gantt, {
   TaskDataEx,
   TaskOption,
   calcOffsetDuration,
+  controlChildLimit,
   handleCalcMax,
+  updateTreeMapItem,
 } from "./gantt";
 import { originColumns, zoomLevels, operationMenu } from "./config";
 
@@ -97,7 +90,6 @@ import {
   handleSortOptions,
   treeFormatToOptions,
   generateNumber,
-  delayChildStartDate,
   isComponent,
   // deepClone
 } from "./utils";
@@ -105,6 +97,7 @@ import {
 import { cloneDeep } from "lodash-es";
 
 import VSelect from "./components/select.vue";
+import OperateDropdown from "./components/operate-dropdown.vue";
 // import AddTaskModal from "./add-task-modal.vue";
 
 const ganttContainerRef = ref();
@@ -179,7 +172,7 @@ function show() {
     formData.duration = task.duration;
     formData.end_date = task.end_date;
     formData.parent = task.parent;
-    formData.pre_task = task.pre_task
+    formData.pre_task = task.pre_task;
     formData.start_date = task.start_date;
     formData.progress = task.progress;
     formData.task_user = task.task_user;
@@ -191,7 +184,20 @@ function close() {
   dialogVisible.value = false;
 }
 
+// 取消编辑或新建 任务
+function cancelCreateTask() {
+  if (state.currentTask?.$new && !state.submit) {
+    gantt.deleteTask(state.currentTask.id);
+  }
+
+  close();
+  state.maxCount = undefined;
+  state.currentTask = null;
+  state.submit = false;
+}
+
 const submit = () => {
+  state.submit = true;
   const currentTask = state.currentTask;
   const isNewFlag = currentTask?.isNew || currentTask?.$new;
 
@@ -276,12 +282,7 @@ const submit = () => {
   if (newTask.$new) {
     delete newTask.$new;
     // 先添加任务，在重排
-
-    console.log("newTask, parent, tindex", newTask, parent, tindex);
-    debugger;
-
     gantt.addTask(newTask, parent, tindex);
-    debugger;
     newUpdateSortCode(newTask.id, parent, tindex, newTask, {});
   } else {
     if (originParent !== parent) {
@@ -289,19 +290,20 @@ const submit = () => {
     } else {
       if (newTask.id) {
         gantt.updateTask(newTask.id, newTask as unknown as Task);
-        updateTreeMapItem(newTask.parent, newTask.id, newTask);
+        updateTreeMapItem(state.targetMap, newTask.parent, newTask.id, newTask);
       }
     }
   }
 
-  // gantt.eachTask((child) => {
-  //   // 限制 任务子级的 开始日期和结束日期
-  //   controlChildLimit(child, newTask, newTask.start_date, false);
-  // }, newTask.id);
-
   gantt.eachTask((child) => {
     // 限制 任务子级的 开始日期和结束日期
-    controlChildLimit(child, newTask, newTask.start_date, false);
+    controlChildLimit(
+      state.targetMap,
+      child,
+      newTask,
+      newTask.start_date,
+      false
+    );
   }, newTask.id);
 
   state.addType = "";
@@ -372,6 +374,7 @@ const handleFormDataValuesChange = (key: keyof TaskDataEx) => {
 };
 
 const menuEventHandler = (command, task) => {
+
   const id = new Date().getTime();
   const tempTask = {
     id,
@@ -462,45 +465,6 @@ function removeTask(task) {
   state.currentTask = null;
 }
 
-// 更新 treeMap 里的数据
-function updateTreeMapItem(parentId, id, task) {
-  const list = state.treeMap[parentId];
-  const index = list.findIndex((item) => item.id === id);
-
-  if (index >= 0) {
-    list[index] = { ...list[index], ...task };
-  }
-}
-
-// 限制 任务子级的 开始日期和结束日期
-function controlChildLimit(child, _task, parentStart, noChangeFlag) {
-  // 如果子级的开始时间到 节假日了，也需要往后延迟到工作日
-  // 除此之外 还要和父级保持 相等的工作日天数差值
-  const childStartDate = delayChildStartDate(parentStart, child.offsetDur);
-
-  // 更新 子级任务的数据
-  child.start_date = childStartDate;
-  child.end_date = gantt.calculateEndDate(childStartDate, child.duration);
-
-  // 限制子级 不超过父级的 开始日期 和 结束日期
-  // if (task && +task.start_date > +child.start_date) {
-  //   limitMoveRight(child, task);
-  // }
-  // if (task && +task.end_date < +child.end_date) {
-  //   limitMoveLeft(child, task);
-  // }
-
-  // 更新任务
-  child.isEdit = true;
-
-  // 如果传了 这个参数 就不去实时更新
-  // 主要是在 模态框里确定后使用的，在那里如果提前更新的话 会导致最后更新数据出现错行的问题
-  if (!noChangeFlag) {
-    gantt.updateTask(child.id, child);
-    updateTreeMapItem(child.parent, child.id, child);
-  }
-}
-
 // 新版  重排 任务用于排序的 code（隐式code 不重排，确保同级 code 唯一，然后显示code 只在前端渲染，给后端只传更改的数据）
 function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
   const { treeMap = {} } = state || {};
@@ -557,15 +521,6 @@ function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
   const beforeIndex = indexFlag ? tindex : tindex - 1;
   const afterIndex = indexFlag ? tindex + 1 : tindex;
 
-  console.log("tindex", tindex);
-
-  console.log("broList", broList);
-
-  console.log("originParent", originParent);
-
-  console.log("parent", parent);
-  debugger;
-
   // 如果 拖拽到最后一个位置
   if (
     tindex > 0 &&
@@ -580,7 +535,7 @@ function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
 
     // 获取 需要切割的 code
     // codeArr 会将 code 根据小数点切割成数组
-    let codeArr = "";
+    let codeArr: string[] = [];
     if (beforeTask.code) {
       codeArr = beforeTask.code.toString().split(".");
     } else {
@@ -656,7 +611,13 @@ function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
       }
 
       // 限制任务的 开始结束日期
-      controlChildLimit(moveTask, parentTask, parentTask.start_date, true);
+      controlChildLimit(
+        state.targetMap,
+        moveTask,
+        parentTask,
+        parentTask.start_date,
+        true
+      );
     } else {
       // 当 移动的任务的持续时间 大于 父级的持续时间
       // 任务时间变成和父任务一致
@@ -840,9 +801,6 @@ function registerLightBox() {
     const taskOptions: TaskOption[] = [];
     treeFormatToOptions(taskOptions, taskTree, id, "text");
 
-    console.log("taskOptions", taskOptions);
-    debugger;
-
     // 如果 task 有任务链接，需要筛选一下，让选择的父任务不能选其后置任务
     let parentOptions: TaskOption[] = [];
     const preTasks = taskOptions.slice(1);
@@ -881,11 +839,6 @@ function registerLightBox() {
           ? String(map[0].count + 1)
           : `${map[parent].code}.${map[parent].count + 1}`;
     }
-
-    console.log('task',task);
-    debugger
-    
-
     const tempTask = {
       ...task,
       showCode,
@@ -900,7 +853,6 @@ function registerLightBox() {
     if (task.end_date!.getTime() > task.start_date!.getTime()) {
       date.setTime((task.end_date?.getTime() as number) - 24 * 60 * 60 * 1000);
     }
-
 
     tempTask.end_date = date;
 
@@ -991,10 +943,12 @@ function initGanntContainer() {
   gantt.config.external_render = {
     isElement: (element) => {
       return isVNode(element) || isComponent(element);
-      // return React.isValidElement(element);
     },
     renderElement: (element, container) => {
-      createApp(element).mount(container);
+      const app =  createApp(element)
+      app.mount(container);
+    
+      // render(h(element), container)
       return container;
     },
   };
@@ -1053,7 +1007,12 @@ function setLinkChangeListener() {
 
       targetTask.isEdit = true;
       gantt.updateTask(targetTask.id, targetTask);
-      updateTreeMapItem(targetTask.parent, targetTask.id, targetTask);
+      updateTreeMapItem(
+        state.targetMap,
+        targetTask.parent,
+        targetTask.id,
+        targetTask
+      );
     }
 
     return true;
@@ -1079,25 +1038,13 @@ function setLinkChangeListener() {
 
       targetTask.isEdit = true;
       gantt.updateTask(targetTask.id, targetTask);
-      updateTreeMapItem(targetTask.parent, targetTask.id, targetTask);
+      updateTreeMapItem(
+        state.targetMap,
+        targetTask.parent,
+        targetTask.id,
+        targetTask
+      );
     }
-  });
-}
-
-// 设置 时间标识线
-function setDateMarker() {
-  const dateToStr = gantt.date.date_to_str(gantt.config.task_date);
-  const today = new Date(new Date().setHours(0, 0, 0, 0)); // 获取当天零点的时间
-
-  console.log("gantt.addMarker", gantt);
-
-  nextTick(() => {
-    gantt.addMarker({
-      start_date: today,
-      css: "today",
-      text: "今日",
-      title: `Today: ${dateToStr(today)}`,
-    });
   });
 }
 
@@ -1105,7 +1052,7 @@ function setDateMarker() {
 function setZooms() {
   const zoomConfig = {
     levels: zoomLevels,
-    // useKey: "ctrlKey",
+    useKey: "ctrlKey",
     // trigger: "wheel",
     element: () => {
       return gantt.$root.querySelector(".gantt_task");
@@ -1116,62 +1063,18 @@ function setZooms() {
   gantt.ext.zoom.setLevel("day");
 }
 
-// TODO: 待移动
 // 设置网格列
 function setColumns() {
   const columns = originColumns.map((item) => {
     const temp = { ...item };
     if (item.name === "add") {
       temp["onrender"] = (task) => {
-        const handleVnode = h(
-          "div",
-          {
-            onClick: (event) => event.stopPropagation(),
-          },
-          h("div", {
-            class: "gantt_add",
-            style: { width: "43px", height: "43px" },
-          })
-        );
-        // ElDropdownItem, ElDropdown, ElDropdownMenu
-
-        const dropdownMenu = h(
-          ElDropdownMenu,
-          {},
-          {
-            default: () => {
-              return operationMenu.map((menu) => {
-                return h(
-                  ElDropdownItem,
-                  { command: menu.key },
-                  () => menu.label
-                );
-              });
-            },
-          }
-        );
-
-        const dropdown = h(
-          ElDropdown,
-          {
-            onCommand: (command) => {
-              menuEventHandler(command, task);
-            },
-          },
-          {
-            default: () => handleVnode,
-            dropdown: () => dropdownMenu,
-          }
-        );
-
-        return defineComponent({
-          setup() {
-            return () => h(dropdown);
-          },
+        return h(OperateDropdown, {
+          menus: operationMenu,
+          onCommand: (command) => menuEventHandler(command, task),
         });
       };
     }
-
     return temp;
   });
 
