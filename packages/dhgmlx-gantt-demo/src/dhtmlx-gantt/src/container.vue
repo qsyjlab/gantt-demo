@@ -69,7 +69,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, isVNode, createApp, h, nextTick, render } from "vue";
+import {
+  onMounted,
+  ref,
+  reactive,
+  isVNode,
+  createApp,
+  h,
+  nextTick,
+  render,
+} from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import BigNumber from "bignumber.js";
 import gantt, {
@@ -374,7 +383,6 @@ const handleFormDataValuesChange = (key: keyof TaskDataEx) => {
 };
 
 const menuEventHandler = (command, task) => {
-
   const id = new Date().getTime();
   const tempTask = {
     id,
@@ -945,9 +953,9 @@ function initGanntContainer() {
       return isVNode(element) || isComponent(element);
     },
     renderElement: (element, container) => {
-      const app =  createApp(element)
+      const app = createApp(element);
       app.mount(container);
-    
+
       // render(h(element), container)
       return container;
     },
@@ -1020,6 +1028,9 @@ function setLinkChangeListener() {
 
   // 链接删除后的回调函数
   gantt.attachEvent("onAfterLinkDelete", (id, item) => {
+
+    console.log('id, item',id, item);
+    
     const { target, source } = item;
     const newId = `${source}-${target}`;
     const preLink = state.targetMap[target];
@@ -1047,6 +1058,7 @@ function setLinkChangeListener() {
     }
   });
 }
+
 
 // 设置 时间刻度范围 以及 时间刻度具体数值 以及 初始时间刻度
 function setZooms() {

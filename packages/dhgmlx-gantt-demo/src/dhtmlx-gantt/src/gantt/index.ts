@@ -41,7 +41,7 @@ export function calcOffsetDuration(id) {
 // 更新 treeMap 里的数据
 export function updateTreeMapItem(treeMap, parentId, id, task) {
   const list = treeMap[parentId];
-  const index = list.findIndex((item) => item.id === id);
+  const index = list?.findIndex((item) => item.id === id);
 
   if (index >= 0) {
     list[index] = { ...list[index], ...task };
