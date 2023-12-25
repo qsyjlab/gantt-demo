@@ -15,7 +15,7 @@ export interface TaskDataEx {
   duration: number;
   end_date?: Date;
   start_date?: Date;
-  progress: string;
+  progress: number;
   task_status: string;
 }
 

@@ -1,5 +1,18 @@
 <template>
   <!-- @ts-nocheck -->
+  <div>
+    <el-space>
+      <el-button
+        v-for="(zoom, zoomIndex) in zoomLevels"
+        :key="zoomIndex"
+        type="primary"
+        @click="ganttZoomChagne(zoom)"
+      >
+        {{ zoom.label }}
+      </el-button>
+    </el-space>
+  </div>
+
   <div style="height: 90%" ref="ganttContainerRef"></div>
 
   <!-- 还要共享值 直接放着了 -->
@@ -69,16 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  onMounted,
-  ref,
-  reactive,
-  isVNode,
-  createApp,
-  h,
-  nextTick,
-  render,
-} from "vue";
+import { onMounted, ref, reactive, isVNode, createApp, h, nextTick } from "vue";
 import { ElMessageBox, ElMessage } from "element-plus";
 import BigNumber from "bignumber.js";
 import gantt, {
@@ -100,14 +104,12 @@ import {
   treeFormatToOptions,
   generateNumber,
   isComponent,
-  // deepClone
 } from "./utils";
 
 import { cloneDeep } from "lodash-es";
 
 import VSelect from "./components/select.vue";
 import OperateDropdown from "./components/operate-dropdown.vue";
-// import AddTaskModal from "./add-task-modal.vue";
 
 const ganttContainerRef = ref();
 
@@ -153,7 +155,7 @@ const formData = reactive<TaskDataEx>({
   start_date: undefined,
   duration: 0,
   end_date: undefined,
-  progress: "",
+  progress: 0,
   task_status: "",
 });
 
@@ -213,9 +215,14 @@ const submit = () => {
   const newTask = {
     ...currentTask,
     ...formData,
+
     isNew: isNewFlag,
     isEdit: !isNewFlag,
   };
+
+  if (newTask.progress) {
+    newTask.progress = (newTask.progress as number) / 100;
+  }
 
   const originParent = currentTask?.parent;
   const { parent = 0 } = newTask;
@@ -318,6 +325,10 @@ const submit = () => {
   state.addType = "";
   close();
   gantt.resetLayout(); // 重置表格 布局，即新建任务的时候，可以看到新建的任务
+};
+
+const ganttZoomChagne = (zoom) => {
+  gantt.ext.zoom.setLevel(zoom.name);
 };
 
 // 某些属性字段变动时的判定
@@ -888,8 +899,8 @@ function registerLightBox() {
 function initGanntContainer() {
   gantt.init(ganttContainerRef.value);
   gantt.config.autofit = true; // 表格列宽自适应
-  // gantt.config.autoscroll = true; // 自动滚动
-  // gantt.config.autoscroll_speed = 50; // 定义将任务或链接拖出当前浏览器屏幕时自动滚动的速度（以毫秒为单位）
+  gantt.config.autoscroll = true; // 自动滚动
+  gantt.config.autoscroll_speed = 50; // 定义将任务或链接拖出当前浏览器屏幕时自动滚动的速度（以毫秒为单位）
   gantt.config.autosize = true; // 自适应甘特图的尺寸大小, 使得在不出现滚动条的情况下, 显示全部任务
   // gantt.config.readonly = true; // 只读模式
   gantt.config.fit_tasks = true; // 当task的长度改变时，自动调整图表坐标轴区间用于适配task的长度
@@ -897,15 +908,12 @@ function initGanntContainer() {
   // gantt.config.select_task = false; // 任务是否可以点击选中
   gantt.config.smart_scales = true; // 仅仅渲染在屏幕可见的那部分时间轴。在处理时间轴非常长的时候，可以提升性能
   gantt.config.smart_rendering = true; // 按需渲染, 仅仅渲染在屏幕可见的那部分任务和依赖线。这个在显示大量的任务时，性能比较高。
-
-  gantt.config.columns = originColumns;
-
   gantt.config.layout = {
     css: "gantt_container",
     cols: [
       {
         width: 400,
-        min_width: 300,
+        min_width: 400,
         rows: [
           {
             view: "grid",
@@ -916,7 +924,7 @@ function initGanntContainer() {
           { view: "scrollbar", id: "gridScroll", group: "horizontal" },
         ],
       },
-      { resizer: true, width: 1 },
+      // { resizer: true, width: 10 },
       {
         rows: [
           { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
@@ -1028,9 +1036,8 @@ function setLinkChangeListener() {
 
   // 链接删除后的回调函数
   gantt.attachEvent("onAfterLinkDelete", (id, item) => {
+    console.log("id, item", id, item);
 
-    console.log('id, item',id, item);
-    
     const { target, source } = item;
     const newId = `${source}-${target}`;
     const preLink = state.targetMap[target];
@@ -1058,7 +1065,6 @@ function setLinkChangeListener() {
     }
   });
 }
-
 
 // 设置 时间刻度范围 以及 时间刻度具体数值 以及 初始时间刻度
 function setZooms() {
