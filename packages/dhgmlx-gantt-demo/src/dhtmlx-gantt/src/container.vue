@@ -104,6 +104,10 @@ import {
   treeFormatToOptions,
   generateNumber,
   isComponent,
+  isSameDate,
+  isDateBefore,
+  isDateAfter,
+  warning
 } from "./utils";
 
 import { cloneDeep } from "lodash-es";
@@ -162,6 +166,7 @@ const formData = reactive<TaskDataEx>({
 onMounted(() => {
   initGanntContainer();
   setLinkChangeListener();
+  setBeforeUpdateTaskListener();
   setZooms();
   setColumns();
   // setDateMarker();
@@ -327,6 +332,7 @@ const submit = () => {
   gantt.resetLayout(); // 重置表格 布局，即新建任务的时候，可以看到新建的任务
 };
 
+// 变更 zoom 范围
 const ganttZoomChagne = (zoom) => {
   gantt.ext.zoom.setLevel(zoom.name);
 };
@@ -505,15 +511,9 @@ function newUpdateSortCode(id, parent, tindex, newTask, editTask = {}) {
   let moveTask = newTask || {};
   taskList.forEach((item) => {
     if (`${item.id}` === `${id}`) {
-      // eslint-disable-next-line camelcase
-      // const { start_date, end_date, duration } = editTask;
       const { parent: originParent } = item;
 
       const tempTask = { ...item, ...editTask };
-      // setDynFieldValue(tempTask, 'start_date', start_date);
-      // setDynFieldValue(tempTask, 'end_date', end_date);
-      // setDynFieldValue(tempTask, 'duration', duration);
-      // setDynFieldValue(tempTask, 'parent', originParent);
       tempTask.parent = originParent;
 
       moveTask = tempTask;
@@ -681,9 +681,6 @@ function updateCodeMapAndTask(treeMap) {
   // 处理 任务成 codeMap, 并获得 更新过 code 的任务
   formatCodeMap(treeMap[0], null, treeMap, tempCodeMap, newList);
   state.codeMap = tempCodeMap;
-
-  console.log("newList", newList);
-  debugger;
 
   // 批量更新任务
   gantt.batchUpdate(() => {
@@ -1063,6 +1060,42 @@ function setLinkChangeListener() {
         targetTask
       );
     }
+  });
+}
+
+function setBeforeUpdateTaskListener() {
+  gantt.attachEvent("onBeforeTaskChanged", function (id, mode, task) {
+    if (mode === "resize") {
+
+      if(!task.parent) return true
+      // 变更后的数据
+      const nowTask =  gantt.getTask(id)
+
+      if(!nowTask.parent) return true
+
+      const parentTask = gantt.getTask(nowTask.parent)
+
+
+      // 如果时间改变判定时间范围
+      if(!isSameDate(nowTask.start_date, task.start_date) || !isSameDate(nowTask.end_date, task.end_date)) {
+
+
+        if(isDateBefore(nowTask.start_date, parentTask.start_date)) {
+          warning('不能超出父级时间范围')
+        
+          return false
+        }
+          
+        if(isDateAfter(nowTask.end_date, parentTask.end_date)) {
+          warning('不能超出父级时间范围')
+          return false
+        }
+
+      }
+
+      debugger
+    }
+    return true;
   });
 }
 
