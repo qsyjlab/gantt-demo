@@ -10,6 +10,8 @@
       >
         {{ zoom.label }}
       </el-button>
+
+      <el-button type="primary" @click="getJson"> 获取 json</el-button>
     </el-space>
   </div>
 
@@ -107,7 +109,9 @@ import {
   isSameDate,
   isDateBefore,
   isDateAfter,
-  warning
+  warning,
+  setEncoded,
+  downloadFile,
 } from "./utils";
 
 import { cloneDeep } from "lodash-es";
@@ -1066,34 +1070,32 @@ function setLinkChangeListener() {
 function setBeforeUpdateTaskListener() {
   gantt.attachEvent("onBeforeTaskChanged", function (id, mode, task) {
     if (mode === "resize") {
-
-      if(!task.parent) return true
+      if (!task.parent) return true;
       // 变更后的数据
-      const nowTask =  gantt.getTask(id)
+      const nowTask = gantt.getTask(id);
 
-      if(!nowTask.parent) return true
+      if (!nowTask.parent) return true;
 
-      const parentTask = gantt.getTask(nowTask.parent)
-
+      const parentTask = gantt.getTask(nowTask.parent);
 
       // 如果时间改变判定时间范围
-      if(!isSameDate(nowTask.start_date, task.start_date) || !isSameDate(nowTask.end_date, task.end_date)) {
+      if (
+        !isSameDate(nowTask.start_date, task.start_date) ||
+        !isSameDate(nowTask.end_date, task.end_date)
+      ) {
+        if (isDateBefore(nowTask.start_date, parentTask.start_date)) {
+          warning("不能超出父级时间范围");
 
-
-        if(isDateBefore(nowTask.start_date, parentTask.start_date)) {
-          warning('不能超出父级时间范围')
-        
-          return false
-        }
-          
-        if(isDateAfter(nowTask.end_date, parentTask.end_date)) {
-          warning('不能超出父级时间范围')
-          return false
+          return false;
         }
 
+        if (isDateAfter(nowTask.end_date, parentTask.end_date)) {
+          warning("不能超出父级时间范围");
+          return false;
+        }
       }
 
-      debugger
+      debugger;
     }
     return true;
   });
@@ -1130,6 +1132,28 @@ function setColumns() {
   });
 
   gantt.config.columns = columns;
+}
+
+function getJson() {
+  function exportJson(data, options?) {
+    const jsonString = JSON.stringify(data, null, 2);
+
+    // 创建 Blob 对象
+    const blob = new Blob([jsonString], { type: "application/json" });
+
+    // 创建下载链接
+    const downloadLink = document.createElement("a");
+
+    const fileLink = URL.createObjectURL(blob);
+    downloadLink.href = fileLink;
+    downloadLink.download = `${options?.filename || fileLink}.json`;
+
+    downloadLink.click();
+  }
+
+  exportJson(gantt.serialize(), {
+    filename:new Date().getTime().toString()
+  })
 }
 </script>
 
